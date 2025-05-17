@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 
+  You can add any custom global styles or overrides here,
+  after the Tailwind directives.
+
+  For example, if you want to ensure body takes full height and has a default bg 
+  (though App.svelte already sets a flex h-screen container with bg):
+*/
+body {
+  /* Tailwind's preflight (imported via @tailwind base) handles many body defaults. */
+  /* If you have specific global font or color scheme settings beyond Tailwind, add them here. */
+  /* The default Vite app.css had color-scheme and dark mode text/bg colors, 
+     Tailwind handles this via its dark: prefix and config. */
+}
+
+/* Remove or comment out any conflicting styles from the old app.css, 
+   especially those that center the #app or body content if you want a full-page layout. 
+   Tailwind's base styles will provide a good reset. 
+*/
