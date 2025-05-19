@@ -409,7 +409,7 @@ function loadModelData(data: ModelData) {
             ...current, // Keep existing non-model state like theme, UI if not in modelData
             totalSupply: data.totalSupply !== undefined ? data.totalSupply : current.totalSupply,
             timeStep: data.timeStep || current.timeStep,
-            monteCarlo: data.monteCarlo ? { ...initialState.monteCarlo, ...data.monteCarlo } : current.monteCarlo, // Merge with defaults
+            monteCarlo: data.monteCarlo ? { ...baseInitialState.monteCarlo, ...data.monteCarlo } : current.monteCarlo, // Merge with defaults
             entities: loadedEntities,
             burnSinks: loadedBurnSinks,
             mintEvents: loadedMintEvents,
@@ -481,8 +481,24 @@ export function generateShareableUrl() {
             // Use CompressionStream if available
             new Response(new Blob([jsonString]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer()
             .then(compressed => {
-                const base64String = btoa(String.fromCharCode(...new Uint8Array(compressed)));
-                const shareUrl = `${window.location.origin}${window.location.pathname}?model_v2_gz=${base64String}`;
+                // Robust Uint8Array to base64 conversion (handles large arrays)
+function uint8ToBase64(uint8: Uint8Array) {
+    let CHUNK_SIZE = 0x8000;
+    let index = 0;
+    let length = uint8.length;
+    let result = '';
+    let slice;
+    while (index < length) {
+        slice = uint8.subarray(index, Math.min(index + CHUNK_SIZE, length));
+        result += String.fromCharCode.apply(null, slice as any);
+        index += CHUNK_SIZE;
+    }
+    return btoa(result);
+}
+const base64String = encodeURIComponent(uint8ToBase64(new Uint8Array(compressed)));
+console.log('[Share] Compressed length:', compressed.byteLength, 'Base64 length:', base64String.length);
+const shareUrl = `${window.location.origin}${window.location.pathname}?model_v2_gz=${base64String}`;
+console.log('[Share] Generated share URL:', shareUrl);
                 navigator.clipboard.writeText(shareUrl)
                     .then(() => alert("Shareable GZIPPED URL copied to clipboard! Shorter and more robust."))
                     .catch(() => prompt("Could not copy. Please copy this GZIPPED URL manually:", shareUrl));
@@ -528,23 +544,31 @@ export function loadModelFromUrlParams() {
         try {
             if (base64ModelGz) {
                  if (typeof DecompressionStream !== 'undefined' && typeof Response !== 'undefined') {
-                    const byteString = atob(base64ModelGz);
-                    const bytes = new Uint8Array(byteString.length);
-                    for (let i = 0; i < byteString.length; i++) {
-                        bytes[i] = byteString.charCodeAt(i);
-                    }
-                    new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text()
-                    .then(decompressedJsonString => {
-                        processModelString(decompressedJsonString);
-                    }).catch(e => {
-                        console.error("Failed to decompress model_v2_gz from URL, trying legacy:", e);
-                        if (base64Model) { // Try legacy if gzipped failed
-                           const jsonStr = decodeURIComponent(atob(base64Model));
-                           processModelString(jsonStr);
-                        } else {
-                           alert("Failed to load model from URL: Invalid gzipped data and no fallback.");
+                    try {
+                        const decoded = decodeURIComponent(base64ModelGz);
+                        const byteString = atob(decoded);
+                        const bytes = new Uint8Array(byteString.length);
+                        for (let i = 0; i < byteString.length; i++) {
+                            bytes[i] = byteString.charCodeAt(i);
                         }
-                    });
+                        console.log('[Load] Decoded gzipped bytes length:', bytes.length);
+                        new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text()
+                        .then(decompressedJsonString => {
+                            console.log('[Load] Decompressed JSON string length:', decompressedJsonString.length);
+                            processModelString(decompressedJsonString);
+                        }).catch(e => {
+                            console.error("Failed to decompress model_v2_gz from URL, trying legacy:", e);
+                            if (base64Model) { // Try legacy if gzipped failed
+                               const jsonStr = decodeURIComponent(atob(base64Model));
+                               processModelString(jsonStr);
+                            } else {
+                               alert("Failed to load model from URL: Invalid gzipped data and no fallback.");
+                            }
+                        });
+                    } catch (err) {
+                        console.error('[Load] Error decoding gzipped model:', err);
+                        alert("Failed to load model from URL: Invalid gzipped data.");
+                    }
                 } else if (base64Model) { // If no DecompressionStream, try legacy model
                     const jsonString = decodeURIComponent(atob(base64Model));
                     processModelString(jsonString);
