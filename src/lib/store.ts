@@ -60,7 +60,14 @@ const PRESET_ENTITIES_DATA = [
     { name: "Community", color: "#9467bd", allocationPercent: 30, cliffMonths: 0, month0UnlockPercent: 2, vestSlope: [{ months: 48, percent: 100 }] },
 ];
 
-// 1. Define the base initial state (without entities needing the provider yet)
+/**
+ * Step 1: Define the base initial state for the Svelte app store.
+ *
+ * Note: Entities are left empty here because they require access to the appStateProvider,
+ * which cannot be safely referenced until the store itself is initialized. This is a two-phase setup:
+ *   1. Create the store with a minimal base state.
+ *   2. Once the store and provider exist, create the actual Entity instances.
+ */
 const baseInitialState: Omit<AppState, 'entities' | 'getAppState'> & { entities: Entity[], getAppState?: () => AppState } = {
   totalSupply: initialTotalSupply,
   timeStep: initialTimeStep,
@@ -84,14 +91,29 @@ const baseInitialState: Omit<AppState, 'entities' | 'getAppState'> & { entities:
   // getAppState will be properly defined after appStateStore is created
 };
 
-// 2. Initialize the store with the base state.
+/**
+ * Step 2: Initialize the Svelte writable store with the base state.
+ *
+ * This allows us to safely reference the store and pass an appStateProvider function
+ * to any classes (like Entity) that require access to the current app state.
+ */
 export const appStateStore: Writable<AppState> = writable(baseInitialState as AppState);
 
-// 3. Define the appStateProvider function. It can now safely use get(appStateStore).
+/**
+ * Step 3: Define the appStateProvider function.
+ *
+ * This function provides a safe way for Entities and other classes to access the current app state
+ * by calling get(appStateStore). It is passed to Entity constructors to enable dynamic, up-to-date
+ * calculations based on the latest state (e.g., for allocation calculations).
+ */
 const appStateProvider = (): AppState => get(appStateStore);
 
-// 4. Now, create the actual initial entities, passing the appStateProvider.
-//    The Entity constructor will use this provider to access totalSupply from the already initialized store.
+/**
+ * Step 4: Now, create the actual initial entities, passing the appStateProvider.
+ *
+ * The Entity constructor uses this provider to access totalSupply and other live state from the store.
+ * This ensures that all entity calculations are always based on the current app state.
+ */
 const actualInitialEntities = PRESET_ENTITIES_DATA.map(pE => {
     const alloc = (pE.allocationPercent / 100) * initialTotalSupply; // Use initialTotalSupply directly for this pre-calculation
     const m0 = (pE.month0UnlockPercent / 100) * alloc;
@@ -101,7 +123,12 @@ const actualInitialEntities = PRESET_ENTITIES_DATA.map(pE => {
     );
 });
 
-// 5. Update the store to include the fully initialized entities and the correct getAppState function.
+/**
+ * Step 5: Update the store to include the fully initialized entities and the correct getAppState function.
+ *
+ * This completes the two-phase initialization, ensuring all entities and the appStateProvider
+ * are correctly set up and available throughout the app.
+ */
 appStateStore.update(current => ({
   ...current,
   entities: actualInitialEntities,
@@ -109,8 +136,19 @@ appStateStore.update(current => ({
 }));
 
 
-// All functions below will use the `appStateProvider` which is now correctly initialized.
+/**
+ * All functions below this point use the `appStateProvider`, which is now correctly initialized.
+ * This ensures that all updates, recalculations, and new instances (e.g., Entity, BurnSink, MintEvent)
+ * always use the most up-to-date state for their logic.
+ */
 
+/**
+ * Update global simulation settings (total supply, time step, Monte Carlo params).
+ *
+ * - Re-instantiates Entity objects to recalculate all derived values based on new state.
+ * - Invalidates previous simulation results.
+ * - Ensures all entity calculations (e.g., allocations) are always correct after changes.
+ */
 export function updateGlobalSettings(settings: Partial<Pick<AppState, 'totalSupply' | 'timeStep'> & { monteCarlo?: Partial<MonteCarloSettings> }>) {
   appStateStore.update(current => {
     const newTotalSupply = settings.totalSupply !== undefined ? settings.totalSupply : current.totalSupply;
@@ -156,6 +194,12 @@ export function toggleColorblindMode() {
     });
 }
 
+/**
+ * Add a new token-holding entity to the model.
+ *
+ * - Uses the current palette for color assignment.
+ * - New entity is selected in the UI by default.
+ */
 export function addEntity() {
     appStateStore.update(current => {
         const newEntity = new Entity({
@@ -185,6 +229,12 @@ export function updateEntity(updatedEntityData: Partial<Entity>) {
         )
     }));
 }
+/**
+ * Delete an entity by ID.
+ *
+ * - Also removes references to this entity in burn sinks and mint events.
+ * - Ensures UI selection is updated if the deleted entity was selected.
+ */
 export function deleteEntity(entityId: string) {
     appStateStore.update(current => {
         const newEntities = current.entities.filter(e => e.id !== entityId);
@@ -279,7 +329,11 @@ interface ModelData {
     mintEvents: Partial<MintEvent>[];
 }
 
-// Helper to convert full Entity/BurnSink/MintEvent instances to plain objects for saving
+/**
+ * Helper to convert full Entity/BurnSink/MintEvent instances to plain objects for saving.
+ *
+ * This is used for scenario export and localStorage persistence.
+ */
 function getModelDataForSave(appState: AppState): ModelData {
     return {
         totalSupply: appState.totalSupply,
@@ -299,8 +353,18 @@ function getModelDataForSave(appState: AppState): ModelData {
     };
 }
 
+/**
+ * Store for scenario names saved in localStorage.
+ *
+ * Used to provide a list of available scenarios for loading/deleting.
+ */
 export const savedScenariosStore: Writable<string[]> = writable([]);
 
+/**
+ * Refresh the list of saved scenarios from localStorage.
+ *
+ * This is called after saving/deleting scenarios or on initial load.
+ */
 export function refreshSavedScenarios() {
     if (typeof window !== 'undefined') {
         const scenarios = [];
@@ -314,6 +378,11 @@ export function refreshSavedScenarios() {
     }
 }
 
+/**
+ * Save the current model state as a scenario in localStorage.
+ *
+ * Scenario names are prefixed with 'tokenSim_' to avoid collisions.
+ */
 export function saveScenario(scenarioName: string) {
     if (!scenarioName.trim() || typeof window === 'undefined') return;
     const currentAppState = get(appStateStore);
@@ -322,6 +391,13 @@ export function saveScenario(scenarioName: string) {
     refreshSavedScenarios();
 }
 
+/**
+ * Load a model from serialized ModelData.
+ *
+ * - Reconstructs Entity, BurnSink, and MintEvent instances from plain objects.
+ * - Resets UI selection and clears previous simulation results.
+ * - Merges Monte Carlo settings with defaults for safety.
+ */
 function loadModelData(data: ModelData) {
     appStateStore.update(current => {
         // When loading, ensure entities are reconstructed with the provider
@@ -343,6 +419,11 @@ function loadModelData(data: ModelData) {
     });
 }
 
+/**
+ * Load a scenario from localStorage by name.
+ *
+ * Handles parsing and error reporting for invalid scenario data.
+ */
 export function loadScenario(scenarioName: string) {
     if (typeof window !== 'undefined') {
         const jsonString = localStorage.getItem(`tokenSim_${scenarioName}`);
@@ -358,6 +439,9 @@ export function loadScenario(scenarioName: string) {
     }
 }
 
+/**
+ * Delete a scenario from localStorage by name and refresh the scenarios list.
+ */
 export function deleteScenario(scenarioName: string) {
     if (typeof window !== 'undefined') {
         localStorage.removeItem(`tokenSim_${scenarioName}`);
@@ -365,6 +449,9 @@ export function deleteScenario(scenarioName: string) {
     }
 }
 
+/**
+ * Export the current model as a downloadable JSON file.
+ */
 export function exportModelAsJson() {
     const currentAppState = get(appStateStore);
     const modelData = getModelDataForSave(currentAppState);
@@ -377,6 +464,12 @@ export function exportModelAsJson() {
     document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
 }
 
+/**
+ * Generate a shareable URL containing the current model as a base64 or gzipped string.
+ *
+ * Uses modern CompressionStream/DecompressionStream APIs if available for shorter URLs.
+ * Falls back to uncompressed base64 encoding for legacy browsers.
+ */
 export function generateShareableUrl() {
     const currentAppState = get(appStateStore);
     const modelData = getModelDataForSave(currentAppState);
@@ -415,6 +508,11 @@ export function generateShareableUrl() {
 }
 
 
+/**
+ * Load a model from URL parameters (either gzipped or base64-encoded).
+ *
+ * Handles both new and legacy formats, with error reporting for failures.
+ */
 export function loadModelFromUrlParams() {
     if (typeof window !== 'undefined') {
         const urlParams = new URLSearchParams(window.location.search);
@@ -465,6 +563,13 @@ export function loadModelFromUrlParams() {
 }
 
 
+/**
+ * Run the simulation or Monte Carlo simulation based on the current app state.
+ *
+ * - Re-instantiates all entities for each run to ensure calculations use the latest state.
+ * - Aggregates results for Monte Carlo mode, otherwise runs a single simulation.
+ * - Results are stored in the app state for chart/table rendering.
+ */
 export function runSimulationAction() {
     appStateStore.update(current => {
         // Ensure entities used for simulation are fresh instances with the latest state context
@@ -500,7 +605,13 @@ export function runSimulationAction() {
     });
 }
 
-// Initialize store states that depend on localStorage or browser features (run once)
+/**
+ * Initialize store states that depend on localStorage or browser features.
+ *
+ * - Hydrates colorblind mode and palette from localStorage.
+ * - Loads saved scenarios and model (if present) from URL params.
+ * - Should only run once on app startup.
+ */
 if (typeof window !== 'undefined') {
     const initialColorblind = localStorage.getItem('colorblindMode') === 'true';
     // Theme is already set during baseInitialState creation

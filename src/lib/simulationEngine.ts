@@ -4,6 +4,12 @@ import type { Entity } from './models/entity';
 import type { BurnSink } from './models/burnSink';
 import type { MintEvent } from './models/mintEvent';
 
+/**
+ * Output for a single simulation step (time unit).
+ *
+ * Tracks all unlocked, burned, minted, and per-entity balances for this step.
+ * Used for both deterministic and Monte Carlo runs.
+ */
 export interface SimulationStepOutput {
   time: number;
   totalUnlockedThisStep: number;
@@ -18,12 +24,24 @@ export interface SimulationStepOutput {
   [key: string]: any; 
 }
 
+/**
+ * Statistical summary for a metric across Monte Carlo runs.
+ *
+ * - mean: average
+ * - p5: 5th percentile
+ * - p95: 95th percentile
+ */
 interface MonteCarloMetric {
     mean: number;
     p5: number;
     p95: number;
 }
 
+/**
+ * Output for a single time step, but with all numeric fields aggregated as MonteCarloMetric.
+ *
+ * Used for displaying mean/percentile bands on charts after Monte Carlo simulation.
+ */
 export interface AggregatedSimulationStepOutput extends Omit<SimulationStepOutput, 'totalUnlockedThisStep' | 'totalBurnedThisStep' | 'totalMintedThisStep' | 'entityUnlockedThisStep' | 'entityCirculating' | 'entityLocked' | 'currentTotalSupply' | 'currentCirculatingSupply'> {
     totalUnlockedThisStep: MonteCarloMetric;
     totalBurnedThisStep: MonteCarloMetric;
@@ -35,11 +53,23 @@ export interface AggregatedSimulationStepOutput extends Omit<SimulationStepOutpu
     currentCirculatingSupply: MonteCarloMetric;
 }
 
+/**
+ * Full simulation results for charting and analysis.
+ *
+ * - timeSeries: array of step outputs (raw or aggregated)
+ * - isMonteCarlo: true if results are from MC simulation
+ */
 export interface SimulationResults {
   timeSeries: (SimulationStepOutput | AggregatedSimulationStepOutput)[];
   isMonteCarlo: boolean;
 }
 
+/**
+ * Internal simulation state, updated at each step.
+ *
+ * Tracks locked/circulating for each entity, vesting state, and supply totals.
+ * Not exposed to the UI directly.
+ */
 interface SimDataInternal {
   totalSupply: number;
   circulatingSupply: number;
@@ -52,6 +82,11 @@ interface SimDataInternal {
   }>;
 }
 
+/**
+ * Convert a number of months to simulation time steps, based on the selected time unit.
+ *
+ * Handles rounding for weeks/quarters.
+ */
 export function convertMonthsToTimeSteps(months: number, timeStep: AppState['timeStep']): number {
   if (months === 0) return 0;
   switch (timeStep) {
@@ -62,6 +97,11 @@ export function convertMonthsToTimeSteps(months: number, timeStep: AppState['tim
   }
 }
 
+/**
+ * Calculate the total simulation duration (in time steps) needed to cover all vesting and mint events.
+ *
+ * Finds the latest vesting/mint, converts to steps, and ensures at least 1 step.
+ */
 export function getSimulationDurationInTimeSteps(entities: Entity[], mintEvents: MintEvent[], timeStep: AppState['timeStep']): number {
   let maxMonths = 1; 
   entities.forEach((e) => {
@@ -75,6 +115,12 @@ export function getSimulationDurationInTimeSteps(entities: Entity[], mintEvents:
   return Math.max(1, duration); 
 }
 
+/**
+ * Initialize the internal simulation state for a run.
+ *
+ * Sets up entity balances (locked/circulating) and vesting state for each entity.
+ * Handles month 0 unlock logic.
+ */
 export function initializeSimulationData(initialTotalSupply: number, entities: Entity[]): SimDataInternal {
   const simData: SimDataInternal = {
     totalSupply: initialTotalSupply,
@@ -103,6 +149,25 @@ export function initializeSimulationData(initialTotalSupply: number, entities: E
   return simData;
 }
 
+/**
+ * Run a single simulation step (time unit).
+ *
+ * Handles:
+ *   1. Unlocks from vesting schedules (with cliff, slope, and segment logic)
+ *   2. Token burns from eligible burn sinks (with cost formulas and stochastic MC support)
+ *   3. Token mints (either to entity or direct to circulating)
+ *
+ * Updates internal balances and returns a step output for charting and analysis.
+ *
+ * @param simData - Internal simulation state (mutated in-place)
+ * @param entities - List of entities for this run
+ * @param burnSinks - Burn sinks to apply
+ * @param mintEvents - Mint events to apply
+ * @param timeStepUnit - "Month", "Week", or "Quarter"
+ * @param t_step - Current time step
+ * @param isMonteCarloRun - True if this is a MC run (enables stochastic logic)
+ * @param mcParams - Monte Carlo params (volatility, demand growth)
+ */
 export function runSingleSimulationStep(
   simData: SimDataInternal, 
   entities: Entity[],
@@ -276,6 +341,16 @@ export function runSingleSimulationStep(
   return stepOutput;
 }
 
+/**
+ * Aggregate results from all Monte Carlo runs into mean and percentile bands for each step.
+ *
+ * For each time step, calculates stats (mean, p5, p95) for all tracked metrics across all runs.
+ * Used for displaying confidence intervals and summary bands on charts.
+ *
+ * @param mcResults - Array of MC runs (each run is an array of SimulationStepOutput)
+ * @param durationInTimeSteps - Number of steps in the simulation
+ * @param entitiesForStats - Entities to aggregate stats for
+ */
 export function aggregateMonteCarloResults(
     mcResults: SimulationStepOutput[][], 
     durationInTimeSteps: number,

@@ -1,47 +1,76 @@
-# Svelte + TS + Vite
+# Tokenomics Modeler
 
-This template should help get you started developing with Svelte and TypeScript in Vite.
+This project is a client-side Tokenomics Modeler built with Svelte, TypeScript, Vite, and Tailwind CSS. It allows users to model and simulate various tokenomic scenarios, including token allocations, vesting schedules, mint/burn events, and Monte Carlo simulations.
 
-## Recommended IDE Setup
+## Project Overview
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
+The application features a modular architecture with centralized state management using Svelte Stores, a dedicated simulation engine for calculations, and a component-based UI for user interaction.
 
-## Need an official Svelte framework?
+Key functionalities include:
+- Defining multiple token-holding entities (e.g., Team, Investors, Treasury).
+- Configuring detailed vesting schedules for each entity.
+- Modeling token minting events and burn mechanisms.
+- Running simulations over a defined time period.
+- Performing Monte Carlo simulations to analyze probabilistic outcomes.
+- Visualizing simulation results through charts and tables.
 
-Check out [SvelteKit](https://github.com/sveltejs/kit#readme), which is also powered by Vite. Deploy anywhere with its serverless-first approach and adapt to various platforms, with out of the box support for TypeScript, SCSS, and Less, and easily-added support for mdsvex, GraphQL, PostCSS, Tailwind CSS, and more.
+## Current Status (Phase 0.5: Polish & Refinement)
 
-## Technical considerations
+The project is currently in **Phase 0.5**, which focuses on:
+- Solidifying the existing application foundation.
+- Improving code clarity and resolving minor architectural ambiguities.
+- Preparing for significant future feature development (as outlined in `PLANNING.MD` and `TASKS.md`).
 
-**Why use this over SvelteKit?**
+Key tasks for this phase include codebase consolidation, enhancing development environment practices (e.g., linting, pre-commit hooks), and improving internal documentation.
 
-- It brings its own routing solution which might not be preferable for some users.
-- It is first and foremost a framework that just happens to use Vite under the hood, not a Vite app.
+**Progress on Phase 0.5 Tasks:**
+- **`runSimulationAction` Redundancy:** The primary simulation logic is consolidated in `src/lib/store.ts`. The redundant `src/lib/actions/simulationActions.ts` file has been removed.
+- **Project Structure Cleanup:** The unused `src/routes` directory (not needed for the current `App.svelte`-driven structure) has been removed.
+- **Code Quality Standards:** Setup of ESLint, Prettier, and pre-commit hooks is pending.
+- **Tailwind CSS Migration:** The project has migrated to Tailwind CSS v4+ using the new @tailwindcss/vite plugin. The legacy postcss.config.js is removed, and the global CSS now uses @import "tailwindcss". CSS is now working again after this migration.
 
-This template contains as little as possible to get started with Vite + TypeScript + Svelte, while taking into account the developer experience with regards to HMR and intellisense. It demonstrates capabilities on par with the other `create-vite` templates and is a good starting point for beginners dipping their toes into a Vite + Svelte project.
+## Tech Stack
 
-Should you later need the extended capabilities and extensibility provided by SvelteKit, the template has been structured similarly to SvelteKit so that it is easy to migrate.
+- **Framework:** Svelte
+- **Language:** TypeScript
+- **Build Tool:** Vite
+- **Styling:** Tailwind CSS (v4+ via @tailwindcss/vite)
+- **Build Pipeline:** No postcss.config.js required for Tailwind; uses Vite plugin integration.
+- **Charting:** Chart.js
+- **State Management:** Svelte Stores
+- **Testing:** Vitest, Svelte Testing Library
 
-**Why `global.d.ts` instead of `compilerOptions.types` inside `jsconfig.json` or `tsconfig.json`?**
+## Getting Started
 
-Setting `compilerOptions.types` shuts out all other types not explicitly listed in the configuration. Using triple-slash references keeps the default TypeScript setting of accepting type information from the entire workspace, while also adding `svelte` and `vite/client` type information.
+1.  **Clone the repository:**
+    ```bash
+    git clone <repository-url>
+    cd tokenomicsmodel
+    ```
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
+3.  **Run the development server:**
+    ```bash
+    npm run dev
+    ```
+    The application will be available at `http://localhost:5173` (or the port specified by Vite).
 
-**Why include `.vscode/extensions.json`?**
+## Available Scripts
 
-Other templates indirectly recommend extensions via the README, but this file allows VS Code to prompt the user to install the recommended extension upon opening the project.
+- `npm run dev`: Starts the development server.
+- `npm run build`: Builds the application for production.
+- `npm run preview`: Serves the production build locally.
+- `npm run check`: Runs Svelte check and TypeScript compiler checks.
+- `npm run test`: Runs unit tests with Vitest.
+- `npm run test:watch`: Runs unit tests in watch mode.
 
-**Why enable `allowJs` in the TS template?**
+## Future Development
 
-While `allowJs: false` would indeed prevent the use of `.js` files in the project, it does not prevent the use of JavaScript syntax in `.svelte` files. In addition, it would force `checkJs: false`, bringing the worst of both worlds: not being able to guarantee the entire codebase is TypeScript, and also having worse typechecking for the existing JavaScript. In addition, there are valid use cases in which a mixed codebase may be relevant.
-
-**Why is HMR not preserving my local component state?**
-
-HMR state preservation comes with a number of gotchas! It has been disabled by default in both `svelte-hmr` and `@sveltejs/vite-plugin-svelte` due to its often surprising behavior. You can read the details [here](https://github.com/rixo/svelte-hmr#svelte-hmr).
-
-If you have state that's important to retain within a component, consider creating an external store which would not be replaced by HMR.
-
-```ts
-// store.ts
-// An extremely simple external store
-import { writable } from 'svelte/store'
-export default writable(0)
-```
+Refer to `PLANNING.MD` and `TASKS.md` for detailed information on planned features and future development phases, including:
+- Advanced vesting mechanisms.
+- Dynamic minting and foundational staking.
+- Treasury management features.
+- User experience enhancements.
+- Advanced modeling and analytics capabilities.
