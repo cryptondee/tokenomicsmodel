@@ -112,7 +112,8 @@ export function getSimulationDurationInTimeSteps(entities: Entity[], mintEvents:
     (ev) => (maxMonths = Math.max(maxMonths, ev.month))
   );
   const duration = convertMonthsToTimeSteps(maxMonths, timeStep);
-  return Math.max(1, duration); 
+  // Add one extra step so events exactly at the final month are processed
+  return Math.max(1, duration + 1);
 }
 
 /**

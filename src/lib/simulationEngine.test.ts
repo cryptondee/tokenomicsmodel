@@ -76,13 +76,13 @@ describe('simulationEngine core functions', () => {
         mockEntityGSD('E2', 6, [12]),
       ];
       const mintEvents: MintEvent[] = [];
-      expect(getSimulationDurationInTimeSteps(entities, mintEvents, 'Month')).toBe(36);
+      expect(getSimulationDurationInTimeSteps(entities, mintEvents, 'Month')).toBe(37);
     });
 
     it('should calculate duration based on the latest mint event if it extends beyond vesting', () => {
       const entities = [mockEntityGSD('E1', 12, [24])];
       const mintEvents = [mockMintEventGSD(48)];
-      expect(getSimulationDurationInTimeSteps(entities, mintEvents, 'Month')).toBe(48);
+      expect(getSimulationDurationInTimeSteps(entities, mintEvents, 'Month')).toBe(49);
     });
 
     it('should ensure a minimum duration of 1 time step', () => {
@@ -94,10 +94,10 @@ describe('simulationEngine core functions', () => {
     it('should correctly use timeStep for duration calculation', () => {
       const entities = [mockEntityGSD('E1', 12, [24])]; 
       const mintEvents: MintEvent[] = [];
-      const expectedWeeks = convertMonthsToTimeSteps(36, 'Week');
+      const expectedWeeks = convertMonthsToTimeSteps(36, 'Week') + 1;
       expect(getSimulationDurationInTimeSteps(entities, mintEvents, 'Week')).toBe(expectedWeeks);
       
-      const expectedQuarters = convertMonthsToTimeSteps(36, 'Quarter');
+      const expectedQuarters = convertMonthsToTimeSteps(36, 'Quarter') + 1;
       expect(getSimulationDurationInTimeSteps(entities, mintEvents, 'Quarter')).toBe(expectedQuarters);
     });
 
